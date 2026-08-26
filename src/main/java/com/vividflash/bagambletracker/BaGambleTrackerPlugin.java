@@ -30,7 +30,7 @@ import net.runelite.http.api.loottracker.LootRecordType;
 @Slf4j
 @PluginDescriptor(
 	name = "BA Gamble Tracker",
-	description = "Records the rewards from Barbarian Assault low and medium gambles in the Loot Tracker.",
+	description = "Records Barbarian Assault gamble rewards. Low and medium tiers are added to the Loot Tracker.",
 	tags = {"barbarian", "assault", "ba", "gamble", "minigame", "loot", "tracker"}
 )
 public class BaGambleTrackerPlugin extends Plugin
