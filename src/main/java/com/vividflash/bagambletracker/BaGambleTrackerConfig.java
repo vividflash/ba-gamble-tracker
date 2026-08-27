@@ -12,14 +12,14 @@ public interface BaGambleTrackerConfig extends Config
 
 	@ConfigSection(
 		name = "Gamble Settings",
-		description = "Stops or flags a gamble row in the reward shop, per tier.",
+		description = "Block or highlight a gamble row, per tier.",
 		position = 0
 	)
 	String guardSection = "guardSection";
 
 	@ConfigSection(
 		name = "Diagnostics",
-		description = "Readouts for working out why a gamble went unrecorded.",
+		description = "Chat output for an unrecorded gamble.",
 		position = 1,
 		closedByDefault = true
 	)
@@ -28,7 +28,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "lowGambleGuard",
 		name = "Low gamble",
-		description = "Block outlines the row in red and consumes the click on it, and on Accept while it is selected. Highlight outlines the row in green and lets the click through.",
+		description = "Block: red, click eaten. Highlight: green, click through.",
 		section = guardSection,
 		position = 0
 	)
@@ -40,7 +40,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "mediumGambleGuard",
 		name = "Medium gamble",
-		description = "Block outlines the row in red and consumes the click on it, and on Accept while it is selected. Highlight outlines the row in green and lets the click through.",
+		description = "Block: red, click eaten. Highlight: green, click through.",
 		section = guardSection,
 		position = 1
 	)
@@ -52,7 +52,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "highGambleGuard",
 		name = "High gamble",
-		description = "Block outlines the row in red and consumes the click on it, and on Accept while it is selected. Highlight outlines the row in green and lets the click through.",
+		description = "Block: red, click eaten. Highlight: green, click through.",
 		section = guardSection,
 		position = 2
 	)
@@ -64,7 +64,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "acceptPathOnly",
 		name = "Only use the accept path",
-		description = "Drops the honour point fallback, so a gamble only records if the row you clicked and the Accept that followed were both seen. For telling the two detections apart.",
+		description = "Selected row only, no honour point fallback.",
 		section = debugSection,
 		position = 0
 	)
@@ -76,7 +76,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "logCostMismatch",
 		name = "Unexpected charge",
-		description = "Prints when a gamble charges something other than the price the shop lists.",
+		description = "Charges that differ from the listed price.",
 		section = debugSection,
 		position = 1
 	)
@@ -88,7 +88,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "logGambles",
 		name = "Gamble detection",
-		description = "Prints the Accept click, the row it read, and the honour points that moved.",
+		description = "Accept clicks, the row read, points spent.",
 		section = debugSection,
 		position = 3
 	)
@@ -100,7 +100,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "logRewards",
 		name = "Rewards",
-		description = "Prints what a gamble paid out, or that its reward never arrived.",
+		description = "Loot paid out, or none arriving.",
 		section = debugSection,
 		position = 4
 	)
@@ -112,7 +112,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "logGuards",
 		name = "Blocked clicks",
-		description = "Prints each click a guard consumed.",
+		description = "Clicks a guard ate.",
 		section = debugSection,
 		position = 2
 	)
