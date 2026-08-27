@@ -195,6 +195,15 @@ public class BaGambleTrackerPlugin extends Plugin
 			// The click is what selects the row, so remember where it points.
 			// The shop holds one selection, so a click on anything else clears
 			// this rather than leaving a stale tier behind.
+			if (row != null)
+			{
+				say(config.logGambles(), "selected " + name(row));
+			}
+			else if (selectedTier != null)
+			{
+				say(config.logGambles(), name(selectedTier) + " no longer selected, another row clicked");
+			}
+
 			selectedTier = row;
 			return;
 		}
@@ -531,7 +540,10 @@ public class BaGambleTrackerPlugin extends Plugin
 
 		if (!pointsKnown)
 		{
+			// Say so, otherwise a charge swallowed by the first reading in the
+			// lobby is indistinguishable from the plugin never running.
 			pointsKnown = true;
+			say(config.logGambles(), "watching the points");
 			return null;
 		}
 
