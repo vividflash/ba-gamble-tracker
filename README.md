@@ -1,7 +1,7 @@
 # BA Gamble Loot
 
-Records Barbarian Assault gamble rewards in the Loot Tracker. RuneLite already
-records high gambles, so all three tiers show up.
+Records the rewards from Barbarian Assault low and medium gambles in the Loot
+Tracker.
 
 ## Gamble Settings
 
