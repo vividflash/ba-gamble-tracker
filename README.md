@@ -12,7 +12,3 @@ Block eats the click on that row and on Accept. Highlight only outlines it.
 | Low gamble | Off |
 | Medium gamble | Off |
 | High gamble | Off |
-
-## License
-
-BSD 2-Clause.
