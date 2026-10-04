@@ -12,7 +12,7 @@ public interface BaGambleTrackerConfig extends Config
 
 	@ConfigSection(
 		name = "Gamble Settings",
-		description = "Block or highlight a gamble row, per tier.",
+		description = "",
 		position = 0
 	)
 	String guardSection = "guardSection";
@@ -28,7 +28,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "lowGambleGuard",
 		name = "Low gamble",
-		description = "Block: red, click eaten. Highlight: green, click through.",
+		description = "Block: red, click consumed. Highlight: green, click through.",
 		section = guardSection,
 		position = 0
 	)
@@ -40,7 +40,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "mediumGambleGuard",
 		name = "Medium gamble",
-		description = "Block: red, click eaten. Highlight: green, click through.",
+		description = "Block: red, click consumed. Highlight: green, click through.",
 		section = guardSection,
 		position = 1
 	)
@@ -52,7 +52,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "highGambleGuard",
 		name = "High gamble",
-		description = "Block: red, click eaten. Highlight: green, click through.",
+		description = "Block: red, click consumed. Highlight: green, click through.",
 		section = guardSection,
 		position = 2
 	)
@@ -112,7 +112,7 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigItem(
 		keyName = "logGuards",
 		name = "Blocked clicks",
-		description = "Clicks a guard ate.",
+		description = "",
 		section = debugSection,
 		position = 2
 	)
