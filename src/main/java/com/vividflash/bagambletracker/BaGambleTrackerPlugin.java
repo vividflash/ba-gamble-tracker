@@ -104,6 +104,9 @@ public class BaGambleTrackerPlugin extends Plugin
 	private boolean pointsKnown;
 	private boolean reloaded;
 
+	// Set once a tick, so the per-frame and per-spawn handlers do not look up the region.
+	private boolean inLobby;
+
 	private GambleTier selectedTier;
 	private boolean updateChecked;
 
@@ -158,6 +161,8 @@ public class BaGambleTrackerPlugin extends Plugin
 
 			return;
 		}
+
+		inLobby = false;
 
 		if (state != GameState.LOADING)
 		{
@@ -310,6 +315,11 @@ public class BaGambleTrackerPlugin extends Plugin
 	@Subscribe
 	public void onItemSpawned(ItemSpawned event)
 	{
+		if (!inLobby)
+		{
+			return;
+		}
+
 		Player player = client.getLocalPlayer();
 		if (!inRewardArea(player))
 		{
@@ -340,13 +350,19 @@ public class BaGambleTrackerPlugin extends Plugin
 	{
 		maybeAnnounceUpdate();
 		seedInventory();
-		dropLostItems();
+
+		if (!tickLosses.isEmpty())
+		{
+			dropLostItems();
+		}
+
+		inLobby = inRewardArea(client.getLocalPlayer());
 
 		// A gamble is only bought at the shop, but its reward can land after the
 		// walk out, so only the reading is gated on being there.
 		GambleTier tier = null;
 
-		if (inRewardArea(client.getLocalPlayer()))
+		if (inLobby)
 		{
 			tier = readGamble();
 		}
@@ -380,16 +396,19 @@ public class BaGambleTrackerPlugin extends Plugin
 			rewardTaken = true;
 		}
 
-		pending.removeIf(gamble ->
+		if (!pending.isEmpty())
 		{
-			if (gamble.age())
+			pending.removeIf(gamble ->
 			{
-				return false;
-			}
+				if (gamble.age())
+				{
+					return false;
+				}
 
-			say(config.logRewards(), name(gamble.getTier()) + " went " + REWARD_WINDOW_TICKS + " ticks with no reward");
-			return true;
-		});
+				say(config.logRewards(), name(gamble.getTier()) + " went " + REWARD_WINDOW_TICKS + " ticks with no reward");
+				return true;
+			});
+		}
 
 		previousGains.clear();
 		if (!rewardTaken)
@@ -660,6 +679,11 @@ public class BaGambleTrackerPlugin extends Plugin
 	private static String name(GambleTier tier)
 	{
 		return tier == null ? "no gamble" : tier.name().toLowerCase() + " gamble";
+	}
+
+	boolean isInLobby()
+	{
+		return inLobby;
 	}
 
 	private static boolean inRewardArea(Player player)

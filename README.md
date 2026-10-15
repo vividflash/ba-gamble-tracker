@@ -1,7 +1,6 @@
 # BA Gamble Loot
 
-Records the rewards from Barbarian Assault low and medium gambles in the Loot
-Tracker.
+Sends the rewards from BA low and medium gambles to the Loot Tracker.
 
 ## Features
 

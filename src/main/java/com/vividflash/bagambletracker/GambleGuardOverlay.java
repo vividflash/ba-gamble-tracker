@@ -30,11 +30,13 @@ public class GambleGuardOverlay extends Overlay
 
 	private final Client client;
 	private final BaGambleTrackerConfig config;
+	private final BaGambleTrackerPlugin plugin;
 
 	@Inject
-	GambleGuardOverlay(Client client, BaGambleTrackerConfig config)
+	GambleGuardOverlay(Client client, BaGambleTrackerConfig config, BaGambleTrackerPlugin plugin)
 	{
 		this.client = client;
+		this.plugin = plugin;
 		this.config = config;
 		setLayer(OverlayLayer.ABOVE_WIDGETS);
 		setPosition(OverlayPosition.DYNAMIC);
@@ -43,6 +45,11 @@ public class GambleGuardOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
+		if (!plugin.isInLobby())
+		{
+			return null;
+		}
+
 		Widget layer = client.getWidget(InterfaceID.BarbassaultRewardShop.BUTTON_LAYER);
 		if (layer == null || layer.isHidden())
 		{
