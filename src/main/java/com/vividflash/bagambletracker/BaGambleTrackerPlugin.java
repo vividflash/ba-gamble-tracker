@@ -44,7 +44,7 @@ import net.runelite.http.api.loottracker.LootRecordType;
 @Slf4j
 @PluginDescriptor(
 	name = "BA Gamble Loot",
-	description = "BA gamble loot tracking and misclick guard",
+	description = "Barbarian Assault gamble tracking and misclick guard",
 	tags = {"barbarian", "assault", "ba", "gamble", "minigame", "loot", "tracker", "guard", "misclick"}
 )
 public class BaGambleTrackerPlugin extends Plugin
