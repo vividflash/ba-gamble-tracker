@@ -13,14 +13,14 @@ public interface BaGambleTrackerConfig extends Config
 	@ConfigSection(
 		name = "Gamble Settings",
 		description = "",
-		position = 0
+		position = 10
 	)
 	String guardSection = "guardSection";
 
 	@ConfigSection(
 		name = "Diagnostics",
 		description = "Chat output for an unrecorded gamble.",
-		position = 1,
+		position = 20,
 		closedByDefault = true
 	)
 	String debugSection = "debugSection";
@@ -30,7 +30,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Low gamble",
 		description = "Block: red, click consumed. Highlight: green, click through.",
 		section = guardSection,
-		position = 0
+		position = 10
 	)
 	default GuardMode lowGambleGuard()
 	{
@@ -42,7 +42,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Medium gamble",
 		description = "Block: red, click consumed. Highlight: green, click through.",
 		section = guardSection,
-		position = 1
+		position = 20
 	)
 	default GuardMode mediumGambleGuard()
 	{
@@ -54,7 +54,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "High gamble",
 		description = "Block: red, click consumed. Highlight: green, click through.",
 		section = guardSection,
-		position = 2
+		position = 30
 	)
 	default GuardMode highGambleGuard()
 	{
@@ -66,7 +66,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Only use the accept path",
 		description = "Selected row only, no honour point fallback.",
 		section = debugSection,
-		position = 0
+		position = 10
 	)
 	default boolean acceptPathOnly()
 	{
@@ -78,7 +78,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Unexpected charge",
 		description = "Charges that differ from the listed price.",
 		section = debugSection,
-		position = 1
+		position = 20
 	)
 	default boolean logCostMismatch()
 	{
@@ -90,7 +90,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Gamble detection",
 		description = "Accept clicks, the row read, points spent.",
 		section = debugSection,
-		position = 3
+		position = 40
 	)
 	default boolean logGambles()
 	{
@@ -102,7 +102,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Rewards",
 		description = "Loot paid out, or none arriving.",
 		section = debugSection,
-		position = 4
+		position = 50
 	)
 	default boolean logRewards()
 	{
@@ -114,7 +114,7 @@ public interface BaGambleTrackerConfig extends Config
 		name = "Blocked clicks",
 		description = "",
 		section = debugSection,
-		position = 2
+		position = 30
 	)
 	default boolean logGuards()
 	{
