@@ -1,17 +1,15 @@
 package com.vividflash.bagambletracker;
 
-/**
- * A gamble whose points have been spent and whose reward has not arrived yet.
- */
+// A gamble whose points have been spent and whose reward has not arrived yet.
 class PendingGamble
 {
 	private final GambleTier tier;
-	private int ticksLeft;
+	private final int expiresAt;
 
-	PendingGamble(GambleTier tier, int ticksLeft)
+	PendingGamble(GambleTier tier, int expiresAt)
 	{
 		this.tier = tier;
-		this.ticksLeft = ticksLeft;
+		this.expiresAt = expiresAt;
 	}
 
 	GambleTier getTier()
@@ -19,8 +17,8 @@ class PendingGamble
 		return tier;
 	}
 
-	boolean age()
+	boolean isExpired(int tick)
 	{
-		return --ticksLeft > 0;
+		return tick >= expiresAt;
 	}
 }

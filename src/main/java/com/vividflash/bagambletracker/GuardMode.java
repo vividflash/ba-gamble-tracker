@@ -1,8 +1,6 @@
 package com.vividflash.bagambletracker;
 
-/**
- * What a guard does to its gamble row in the reward shop.
- */
+// What a guard does to its gamble row in the reward shop.
 public enum GuardMode
 {
 	OFF,

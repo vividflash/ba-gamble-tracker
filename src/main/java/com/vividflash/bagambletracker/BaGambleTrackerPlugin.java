@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ import net.runelite.client.chat.ChatMessageBuilder;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -44,7 +46,7 @@ import net.runelite.http.api.loottracker.LootRecordType;
 @Slf4j
 @PluginDescriptor(
 	name = "BA Gamble Loot",
-	description = "BA gamble loot tracking and misclick guard",
+	description = "Barbarian Assault Gamble Tracking and Misclick Guard",
 	tags = {"barbarian", "assault", "ba", "gamble", "minigame", "loot", "tracker", "guard", "misclick"}
 )
 public class BaGambleTrackerPlugin extends Plugin
@@ -53,18 +55,16 @@ public class BaGambleTrackerPlugin extends Plugin
 
 	private static final String LAST_SEEN_VERSION_KEY = "lastSeenVersion";
 
-	/** The release the one-time notice below belongs to, not the packaged version. */
+	// The release the one-time notice below belongs to, not the packaged version.
 	private static final String VERSION = "1.1";
 	private static final String UPDATE_MESSAGE =
 		"BA Gamble Loot v1.1: Each tier can block or highlight its shop row. "
 			+ "Settings in Diagnostics. Fixed medium gambles.";
 
-	/** Dark red for the one-time update notice, legible on either chatbox background. */
+	// Dark red for the one-time update notice, legible on either chatbox background.
 	private static final Color UPDATE_MESSAGE_COLOR = new Color(0x8B0000);
 
-	/**
-	 * Ticks to wait for a reward before the gamble is dropped.
-	 */
+	// Ticks to wait for a reward before the gamble is dropped.
 	private static final int REWARD_WINDOW_TICKS = 10;
 
 
@@ -92,13 +92,17 @@ public class BaGambleTrackerPlugin extends Plugin
 	@Inject
 	private GambleGuardOverlay overlay;
 
-	private final Map<Integer, Integer> inventory = new HashMap<>();
-	private final Map<Integer, Integer> tickGains = new HashMap<>();
+	// inventory and counted, and tickGains and previousGains, swap roles instead of copying.
+	private Map<Integer, Integer> inventory = new HashMap<>();
+	private Map<Integer, Integer> counted = new HashMap<>();
+	private Map<Integer, Integer> tickGains = new HashMap<>();
 	private final Map<Integer, Integer> tickLosses = new HashMap<>();
-	private final Map<Integer, Integer> previousGains = new HashMap<>();
+	private Map<Integer, Integer> previousGains = new HashMap<>();
 	private final Deque<PendingGamble> pending = new ArrayDeque<>();
-	private final int[] points = new int[BaRole.values().length];
-	private final int[] levels = new int[BaRole.values().length];
+	// values() copies the array on every call.
+	private static final BaRole[] ROLES = BaRole.values();
+	private final int[] points = new int[ROLES.length];
+	private final int[] levels = new int[ROLES.length];
 
 	private boolean inventoryKnown;
 	private boolean pointsKnown;
@@ -110,6 +114,10 @@ public class BaGambleTrackerPlugin extends Plugin
 	private GambleTier selectedTier;
 	private boolean updateChecked;
 
+	// The guard settings, read on startUp and on change so the overlay does not ask the config each frame.
+	private final GuardMode[] guards = new GuardMode[GambleTier.TIERS.length];
+	private boolean anyGuardOn;
+
 	@Provides
 	BaGambleTrackerConfig provideConfig(ConfigManager configManager)
 	{
@@ -119,15 +127,22 @@ public class BaGambleTrackerPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		log.debug("[state] startUp");
+		log.debug("[config] low={} medium={} high={} acceptPathOnly={} logCostMismatch={} logGambles={} logRewards={} logGuards={}",
+			config.lowGambleGuard(), config.mediumGambleGuard(), config.highGambleGuard(), config.acceptPathOnly(),
+			config.logCostMismatch(), config.logGambles(), config.logRewards(), config.logGuards());
 		reset();
+		readGuards();
 		overlayManager.add(overlay);
 	}
 
 	@Override
 	protected void shutDown()
 	{
+		log.debug("[state] shutDown");
 		overlayManager.remove(overlay);
-		reset();
+		// No reset here: shutDown runs off the client thread, where clearing the maps could race a
+		// handler still using them. startUp clears them before the handlers are registered again.
 	}
 
 	private void reset()
@@ -144,6 +159,37 @@ public class BaGambleTrackerPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (BaGambleTrackerConfig.GROUP.equals(event.getGroup()))
+		{
+			readGuards();
+		}
+	}
+
+	private void readGuards()
+	{
+		anyGuardOn = false;
+
+		for (GambleTier tier : GambleTier.TIERS)
+		{
+			GuardMode mode = GuardMode.forTier(config, tier);
+			guards[tier.ordinal()] = mode;
+			anyGuardOn |= mode != null && mode != GuardMode.OFF;
+		}
+	}
+
+	GuardMode guardMode(GambleTier tier)
+	{
+		return guards[tier.ordinal()];
+	}
+
+	boolean isAnyGuardOn()
+	{
+		return anyGuardOn;
+	}
+
+	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
 		GameState state = event.getGameState();
@@ -155,6 +201,7 @@ public class BaGambleTrackerPlugin extends Plugin
 			// a dropped connection, is.
 			if (reloaded)
 			{
+				log.debug("[state] logged in after a non-loading state change, tracking reset");
 				reloaded = false;
 				reset();
 			}
@@ -170,10 +217,8 @@ public class BaGambleTrackerPlugin extends Plugin
 		}
 	}
 
-	/**
-	 * Follows what the shop has selected. The tier comes from the row rather
-	 * than from what it charges, so the plugin does not have to know the price.
-	 */
+	// Follows what the shop has selected. The tier comes from the row rather than from what it
+	// charges, so the plugin does not have to know the price.
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
@@ -251,11 +296,9 @@ public class BaGambleTrackerPlugin extends Plugin
 		say(config.logGambles(), "accept on " + name(tier) + ", row " + row);
 	}
 
-	/**
-	 * Gives up on a waiting gamble when the bank opens. Nothing else the player
-	 * can reach inside the window moves the inventory in bulk, and a withdrawal
-	 * booked as gamble loot is a wrong record rather than a missing one.
-	 */
+	// Gives up on a waiting gamble when the bank opens. Nothing else the player can reach inside the
+	// window moves the inventory in bulk, and a withdrawal booked as gamble loot is a wrong record
+	// rather than a missing one.
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event)
 	{
@@ -278,13 +321,22 @@ public class BaGambleTrackerPlugin extends Plugin
 			return;
 		}
 
+		// A gain only counts in the lobby or while a gamble waits on its reward. Anywhere else the
+		// baseline is dropped, and the next tick that needs it takes it again.
+		if (!inLobby && pending.isEmpty())
+		{
+			inventoryKnown = false;
+			return;
+		}
+
 		ItemContainer container = event.getItemContainer();
 		if (container == null)
 		{
 			return;
 		}
 
-		Map<Integer, Integer> current = countItems(container);
+		Map<Integer, Integer> current = counted;
+		countItems(container, current);
 
 		if (inventoryKnown)
 		{
@@ -307,8 +359,8 @@ public class BaGambleTrackerPlugin extends Plugin
 			}
 		}
 
-		inventory.clear();
-		inventory.putAll(current);
+		counted = inventory;
+		inventory = current;
 		inventoryKnown = true;
 	}
 
@@ -335,7 +387,10 @@ public class BaGambleTrackerPlugin extends Plugin
 		TileItem item = event.getItem();
 		int ownership = item.getOwnership();
 
-		say(config.logRewards(), "ground " + describe(item.getId(), item.getQuantity()) + ", ownership " + ownership);
+		if (wants(config.logRewards()))
+		{
+			say(config.logRewards(), "ground " + describe(item.getId(), item.getQuantity()) + ", ownership " + ownership);
+		}
 
 		if (ownership != TileItem.OWNERSHIP_SELF && ownership != TileItem.OWNERSHIP_NONE)
 		{
@@ -349,7 +404,6 @@ public class BaGambleTrackerPlugin extends Plugin
 	public void onGameTick(GameTick event)
 	{
 		maybeAnnounceUpdate();
-		seedInventory();
 
 		if (!tickLosses.isEmpty())
 		{
@@ -357,6 +411,11 @@ public class BaGambleTrackerPlugin extends Plugin
 		}
 
 		inLobby = inRewardArea(client.getLocalPlayer());
+
+		if (inLobby || !pending.isEmpty())
+		{
+			seedInventory();
+		}
 
 		// A gamble is only bought at the shop, but its reward can land after the
 		// walk out, so only the reading is gated on being there.
@@ -379,7 +438,7 @@ public class BaGambleTrackerPlugin extends Plugin
 
 		if (tier != null)
 		{
-			pending.addLast(new PendingGamble(tier, REWARD_WINDOW_TICKS));
+			pending.addLast(new PendingGamble(tier, client.getTickCount() + REWARD_WINDOW_TICKS));
 		}
 
 		boolean rewardTaken = false;
@@ -396,24 +455,21 @@ public class BaGambleTrackerPlugin extends Plugin
 			rewardTaken = true;
 		}
 
-		if (!pending.isEmpty())
+		// Every gamble waits the same number of ticks and they queue in order, so the oldest expires first.
+		while (!pending.isEmpty() && pending.peekFirst().isExpired(client.getTickCount()))
 		{
-			pending.removeIf(gamble ->
-			{
-				if (gamble.age())
-				{
-					return false;
-				}
-
-				say(config.logRewards(), name(gamble.getTier()) + " went " + REWARD_WINDOW_TICKS + " ticks with no reward");
-				return true;
-			});
+			say(config.logRewards(), name(pending.removeFirst().getTier()) + " went " + REWARD_WINDOW_TICKS + " ticks with no reward");
 		}
 
-		previousGains.clear();
-		if (!rewardTaken)
+		if (rewardTaken)
 		{
-			previousGains.putAll(tickGains);
+			previousGains.clear();
+		}
+		else
+		{
+			Map<Integer, Integer> older = previousGains;
+			previousGains = tickGains;
+			tickGains = older;
 		}
 
 		tickGains.clear();
@@ -431,11 +487,8 @@ public class BaGambleTrackerPlugin extends Plugin
 		selectedTier = null;
 	}
 
-	/**
-	 * Says what changed, once, on the first login after an update. A fresh
-	 * install is stamped without a notice, since there is nothing to catch up
-	 * on.
-	 */
+	// Says what changed, once, on the first login after an update. A fresh install is stamped without
+	// a notice, since there is nothing to catch up on.
 	private void maybeAnnounceUpdate()
 	{
 		if (updateChecked)
@@ -454,8 +507,11 @@ public class BaGambleTrackerPlugin extends Plugin
 		configManager.setConfiguration(BaGambleTrackerConfig.GROUP, LAST_SEEN_VERSION_KEY, VERSION);
 		if (lastSeen == null || lastSeen.isEmpty())
 		{
+			log.debug("[update] fresh install, stamped version {} without a notice", VERSION);
 			return;
 		}
+
+		log.debug("[update] notice queued, last seen {} now {}", lastSeen, VERSION);
 
 		chatMessageManager.queue(QueuedMessage.builder()
 			.type(ChatMessageType.CONSOLE)
@@ -465,11 +521,8 @@ public class BaGambleTrackerPlugin extends Plugin
 			.build());
 	}
 
-	/**
-	 * Takes the inventory baseline, on the client thread. Plugin startUp and
-	 * shutDown run on the event dispatch thread, where reading client state is
-	 * not safe.
-	 */
+	// Takes the inventory baseline, on the client thread. Plugin startUp and shutDown run on the event
+	// dispatch thread, where reading client state is not safe.
 	private void seedInventory()
 	{
 		if (inventoryKnown)
@@ -480,15 +533,13 @@ public class BaGambleTrackerPlugin extends Plugin
 		ItemContainer container = client.getItemContainer(InventoryID.INV);
 		if (container != null)
 		{
-			inventory.putAll(countItems(container));
+			countItems(container, inventory);
 			inventoryKnown = true;
 		}
 	}
 
-	/**
-	 * Nets an item lost from the inventory against the same item gained on the
-	 * tick, so that dropping something is not read as receiving it.
-	 */
+	// Nets an item lost from the inventory against the same item gained on the tick, so that dropping
+	// something is not read as receiving it.
 	private void dropLostItems()
 	{
 		tickLosses.forEach((id, lost) ->
@@ -510,18 +561,16 @@ public class BaGambleTrackerPlugin extends Plugin
 		});
 	}
 
-	/**
-	 * Reads the honour point totals and returns the gamble they were just spent
-	 * on, if any.
-	 *
-	 * <p>The shop keeps a row selected, so any charge taken while a gamble row
-	 * is the selection is that gamble, whatever it cost. Buying gear or a level
-	 * up selects its own row first, which clears the gamble.
-	 */
+	// Reads the honour point totals and returns the gamble they were just spent on, if any.
+	//
+	// The shop keeps a row selected, so any charge taken while a gamble row is the selection is that
+	// gamble, whatever it cost. Buying gear or a level up selects its own row first, which clears the
+	// gamble.
 	private GambleTier readGamble()
 	{
-		BaRole[] roles = BaRole.values();
-		StringBuilder moved = new StringBuilder();
+		BaRole[] roles = ROLES;
+		// Made on the first change only, since most ticks change nothing.
+		StringBuilder moved = null;
 		int spent = 0;
 		int rolesCharged = 0;
 		boolean leveled = false;
@@ -535,6 +584,7 @@ public class BaGambleTrackerPlugin extends Plugin
 			{
 				if (currentPoints != points[i])
 				{
+					moved = moved == null ? new StringBuilder() : moved;
 					moved.append(' ').append(roles[i]).append(' ')
 						.append(points[i]).append(" to ").append(currentPoints);
 				}
@@ -548,6 +598,7 @@ public class BaGambleTrackerPlugin extends Plugin
 				if (currentLevel != levels[i])
 				{
 					leveled = true;
+					moved = moved == null ? new StringBuilder() : moved;
 					moved.append(' ').append(roles[i]).append(" level ")
 						.append(levels[i]).append(" to ").append(currentLevel);
 				}
@@ -566,14 +617,13 @@ public class BaGambleTrackerPlugin extends Plugin
 			return null;
 		}
 
-		if (moved.length() == 0)
+		if (moved == null)
 		{
 			return null;
 		}
 
 		// A level up charges a role too, and moves that role's level with it.
 		GambleTier tier = null;
-		GambleTier byCost = rolesCharged == 1 ? GambleTier.forCost(spent) : null;
 
 		if (spent > 0 && !leveled)
 		{
@@ -583,19 +633,23 @@ public class BaGambleTrackerPlugin extends Plugin
 
 			if (tier == null && !config.acceptPathOnly())
 			{
-				tier = byCost;
+				tier = byCost(rolesCharged, spent);
 			}
 		}
 
-		say(config.logGambles(), "points moved:" + moved + ", spent " + spent + " over " + rolesCharged
-			+ " role(s), level moved " + leveled + ", selected " + name(selectedTier)
-			+ ", reads as " + name(tier));
+		if (wants(config.logGambles()))
+		{
+			say(config.logGambles(), "points moved:" + moved + ", spent " + spent + " over " + rolesCharged
+				+ " role(s), level moved " + leveled + ", selected " + name(selectedTier)
+				+ ", reads as " + name(tier));
+		}
 
 		// The price is not what names the tier, but a charge that does not match
 		// the row is the one thing worth saying out loud: it is either a stale
 		// selection or a price this plugin has wrong.
-		if (tier != null && spent != tier.getCost())
+		if (tier != null && spent != tier.getCost() && wants(config.logCostMismatch()))
 		{
+			GambleTier byCost = byCost(rolesCharged, spent);
 			say(config.logCostMismatch(), name(tier) + " charged " + spent + ", not the "
 				+ tier.getCost() + " the shop lists" + (byCost == null ? "" : ", which is a " + name(byCost) + " price"));
 		}
@@ -603,23 +657,32 @@ public class BaGambleTrackerPlugin extends Plugin
 		return tier;
 	}
 
-	/**
-	 * Hands a reward to the Loot Tracker. A high gamble is tracked so that its
-	 * reward is not taken for the next gamble's, but it is not passed on, since
-	 * the client's own Loot Tracker already records that tier.
-	 */
+	private static GambleTier byCost(int rolesCharged, int spent)
+	{
+		return rolesCharged == 1 ? GambleTier.forCost(spent) : null;
+	}
+
+	// Hands a reward to the Loot Tracker. A high gamble is tracked so that its reward is not taken for
+	// the next gamble's, but it is not passed on, since the client's own Loot Tracker already records
+	// that tier.
 	private void record(GambleTier tier, Map<Integer, Integer> reward)
 	{
-		List<ItemStack> items = new ArrayList<>(reward.size());
-		reward.forEach((id, quantity) -> items.add(new ItemStack(id, quantity)));
-
 		if (!tier.isRecorded())
 		{
-			say(config.logRewards(), name(tier) + " took " + describe(reward) + ", not recorded");
+			if (wants(config.logRewards()))
+			{
+				say(config.logRewards(), name(tier) + " took " + describe(reward) + ", not recorded");
+			}
 			return;
 		}
 
-		say(config.logRewards(), name(tier) + " recorded " + describe(reward));
+		if (wants(config.logRewards()))
+		{
+			say(config.logRewards(), name(tier) + " recorded " + describe(reward));
+		}
+
+		List<ItemStack> items = new ArrayList<>(reward.size());
+		reward.forEach((id, quantity) -> items.add(new ItemStack(id, quantity)));
 
 		eventBus.post(PluginLootReceived.builder()
 			.source(this)
@@ -629,21 +692,15 @@ public class BaGambleTrackerPlugin extends Plugin
 			.build());
 	}
 
-	private int totalPoints()
+	// Whether a say line goes anywhere, so a caller can skip building an expensive one.
+	private static boolean wants(boolean enabled)
 	{
-		int total = 0;
-
-		for (BaRole role : BaRole.values())
-		{
-			total += role.points(client);
-		}
-
-		return total;
+		return enabled || log.isDebugEnabled();
 	}
 
 	private void say(boolean enabled, String message)
 	{
-		log.debug(message);
+		log.debug("[gamble] {} (chat={})", message, enabled);
 
 		if (!enabled)
 		{
@@ -658,9 +715,21 @@ public class BaGambleTrackerPlugin extends Plugin
 
 	private String describe(Map<Integer, Integer> items)
 	{
-		List<String> parts = new ArrayList<>(items.size());
-		items.forEach((id, quantity) -> parts.add(describe(id, quantity)));
-		return parts.isEmpty() ? "nothing" : String.join(", ", parts);
+		if (items.isEmpty())
+		{
+			return "nothing";
+		}
+
+		StringBuilder text = new StringBuilder();
+		for (Map.Entry<Integer, Integer> entry : items.entrySet())
+		{
+			if (text.length() > 0)
+			{
+				text.append(", ");
+			}
+			text.append(describe(entry.getKey(), entry.getValue()));
+		}
+		return text.toString();
 	}
 
 	private String describe(int id, int quantity)
@@ -678,7 +747,7 @@ public class BaGambleTrackerPlugin extends Plugin
 
 	private static String name(GambleTier tier)
 	{
-		return tier == null ? "no gamble" : tier.name().toLowerCase() + " gamble";
+		return tier == null ? "no gamble" : tier.name().toLowerCase(Locale.ROOT) + " gamble";
 	}
 
 	boolean isInLobby()
@@ -691,9 +760,9 @@ public class BaGambleTrackerPlugin extends Plugin
 		return player != null && player.getWorldLocation().getRegionID() == BA_LOBBY_REGION;
 	}
 
-	private static Map<Integer, Integer> countItems(ItemContainer container)
+	private static void countItems(ItemContainer container, Map<Integer, Integer> counts)
 	{
-		Map<Integer, Integer> counts = new HashMap<>();
+		counts.clear();
 
 		for (Item item : container.getItems())
 		{
@@ -702,7 +771,5 @@ public class BaGambleTrackerPlugin extends Plugin
 				counts.merge(item.getId(), item.getQuantity(), Integer::sum);
 			}
 		}
-
-		return counts;
 	}
 }

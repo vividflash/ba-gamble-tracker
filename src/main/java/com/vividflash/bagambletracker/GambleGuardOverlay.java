@@ -14,12 +14,9 @@ import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 
-/**
- * Marks the guarded gamble rows, green where the click still goes through and
- * red where it does not. This is drawn over the interface rather than written
- * into it, because the shop recolours a row on mouseover and on selection and
- * would paint over anything the plugin set.
- */
+// Marks the guarded gamble rows, green where the click still goes through and red where it does
+// not. This is drawn over the interface rather than written into it, because the shop recolours a
+// row on mouseover and on selection and would paint over anything the plugin set.
 @Singleton
 public class GambleGuardOverlay extends Overlay
 {
@@ -29,15 +26,13 @@ public class GambleGuardOverlay extends Overlay
 	private static final Color HIGHLIGHT_OUTLINE = new Color(13, 122, 13, 200);
 
 	private final Client client;
-	private final BaGambleTrackerConfig config;
 	private final BaGambleTrackerPlugin plugin;
 
 	@Inject
-	GambleGuardOverlay(Client client, BaGambleTrackerConfig config, BaGambleTrackerPlugin plugin)
+	GambleGuardOverlay(Client client, BaGambleTrackerPlugin plugin)
 	{
 		this.client = client;
 		this.plugin = plugin;
-		this.config = config;
 		setLayer(OverlayLayer.ABOVE_WIDGETS);
 		setPosition(OverlayPosition.DYNAMIC);
 	}
@@ -45,7 +40,7 @@ public class GambleGuardOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (!plugin.isInLobby())
+		if (!plugin.isInLobby() || !plugin.isAnyGuardOn())
 		{
 			return null;
 		}
@@ -68,9 +63,9 @@ public class GambleGuardOverlay extends Overlay
 
 		try
 		{
-			for (GambleTier tier : GambleTier.values())
+			for (GambleTier tier : GambleTier.TIERS)
 			{
-				GuardMode mode = GuardMode.forTier(config, tier);
+				GuardMode mode = plugin.guardMode(tier);
 				if (mode == null || mode == GuardMode.OFF)
 				{
 					continue;
