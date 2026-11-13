@@ -58,7 +58,7 @@ public class BaGambleTrackerPlugin extends Plugin
 	// The release the one-time notice below belongs to, not the packaged version.
 	private static final String VERSION = "1.1";
 	private static final String UPDATE_MESSAGE =
-		"BA Gamble Loot v1.1: Each tier can block or highlight its shop row. "
+		"BA Gamble Loot v" + VERSION + ": Each tier can block or highlight its shop row. "
 			+ "Settings in Diagnostics. Fixed medium gambles.";
 
 	// Dark red for the one-time update notice, legible on either chatbox background.
