@@ -21,7 +21,7 @@ Chat output for an unrecorded gamble.
   Default `On`.
 - **Unexpected charge**: reports charges that differ from the listed price.
   Default `On`.
-- **Blocked clicks**: reports clicks a guard ate. Default `On`.
+- **Blocked clicks**: reports clicks a guard ate. Default `Off`.
 - **Gamble detection**: reports accept clicks, the row read and points spent.
-  Default `On`.
-- **Rewards**: reports loot paid out, or none arriving. Default `On`.
+  Default `Off`.
+- **Rewards**: reports loot paid out, or none arriving. Default `Off`.

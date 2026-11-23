@@ -54,12 +54,16 @@ public class BaGambleTrackerPlugin extends Plugin
 	private static final int BA_LOBBY_REGION = 10039;
 
 	private static final String LAST_SEEN_VERSION_KEY = "lastSeenVersion";
+	private static final String DIAGNOSTICS_MIGRATED_KEY = "diagnosticsOffMigrated";
+
+	// Chat toggles that 1.1 shipped on and that RuneLite saved on into every profile.
+	private static final String[] DIAGNOSTICS_OFF_KEYS = {"logGambles", "logRewards", "logGuards"};
 
 	// The release the one-time notice below belongs to, not the packaged version.
-	private static final String VERSION = "1.1";
+	private static final String VERSION = "1.2";
 	private static final String UPDATE_MESSAGE =
-		"BA Gamble Loot v" + VERSION + ": Each tier can block or highlight its shop row. "
-			+ "Settings in Diagnostics. Fixed medium gambles.";
+		"BA Gamble Loot v" + VERSION
+			+ ": Some Debug Options are now off by default.";
 
 	// Dark red for the one-time update notice, legible on either chatbox background.
 	private static final Color UPDATE_MESSAGE_COLOR = new Color(0x8B0000);
@@ -128,9 +132,13 @@ public class BaGambleTrackerPlugin extends Plugin
 	protected void startUp()
 	{
 		log.debug("[state] startUp");
-		log.debug("[config] low={} medium={} high={} acceptPathOnly={} logCostMismatch={} logGambles={} logRewards={} logGuards={}",
-			config.lowGambleGuard(), config.mediumGambleGuard(), config.highGambleGuard(), config.acceptPathOnly(),
-			config.logCostMismatch(), config.logGambles(), config.logRewards(), config.logGuards());
+		migrateDiagnostics();
+		if (log.isDebugEnabled())
+		{
+			log.debug("[config] low={} medium={} high={} acceptPathOnly={} logCostMismatch={} logGambles={} logRewards={} logGuards={}",
+				config.lowGambleGuard(), config.mediumGambleGuard(), config.highGambleGuard(), config.acceptPathOnly(),
+				config.logCostMismatch(), config.logGambles(), config.logRewards(), config.logGuards());
+		}
 		reset();
 		readGuards();
 		overlayManager.add(overlay);
@@ -485,6 +493,29 @@ public class BaGambleTrackerPlugin extends Plugin
 
 		say(config.logGambles(), name(selectedTier) + " no longer selected, " + reason);
 		selectedTier = null;
+	}
+
+	// Turns the 1.1 chat toggles off once. Anyone who turns them back on afterwards keeps them.
+	private void migrateDiagnostics()
+	{
+		if (configManager.getConfiguration(BaGambleTrackerConfig.GROUP, DIAGNOSTICS_MIGRATED_KEY) != null)
+		{
+			return;
+		}
+
+		for (String key : DIAGNOSTICS_OFF_KEYS)
+		{
+			if ("true".equals(configManager.getConfiguration(BaGambleTrackerConfig.GROUP, key)))
+			{
+				configManager.setConfiguration(BaGambleTrackerConfig.GROUP, key, false);
+				if (log.isDebugEnabled())
+				{
+					log.debug("[config] migrated {} to off", key);
+				}
+			}
+		}
+
+		configManager.setConfiguration(BaGambleTrackerConfig.GROUP, DIAGNOSTICS_MIGRATED_KEY, true);
 	}
 
 	// Says what changed, once, on the first login after an update. A fresh install is stamped without

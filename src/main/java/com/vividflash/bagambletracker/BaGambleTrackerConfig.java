@@ -94,7 +94,7 @@ public interface BaGambleTrackerConfig extends Config
 	)
 	default boolean logGambles()
 	{
-		return true;
+		return false;
 	}
 
 	@ConfigItem(
@@ -106,7 +106,7 @@ public interface BaGambleTrackerConfig extends Config
 	)
 	default boolean logRewards()
 	{
-		return true;
+		return false;
 	}
 
 	@ConfigItem(
@@ -118,6 +118,6 @@ public interface BaGambleTrackerConfig extends Config
 	)
 	default boolean logGuards()
 	{
-		return true;
+		return false;
 	}
 }
